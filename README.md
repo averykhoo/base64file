@@ -5,14 +5,13 @@
 
 ## Usage
 
-...
+```python
+from base64file import Base64File
 
-## Publishing (notes for myself)
-
-* init
-  * `pip install flit`
-  * `flit init`
-  * make sure `nmd/__init__.py` contains a docstring and version
-* publish / update
-  * increment `__version__` in `nmd/__init__.py`
-  * `flit publish`
+with open('some-file.txt', 'w') as f:
+    b = Base64File(file_obj=f)
+    b.write(b'\0\1\2\3\4')
+    b.seek(0)
+    b.write(b'\n')
+    b.close()
+```
