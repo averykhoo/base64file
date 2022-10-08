@@ -3,6 +3,7 @@
 * support with syntax
 * support base85, etc
 * support line wraps
+* remove test from the library
 
 ## Publishing (notes for myself)
 
