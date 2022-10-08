@@ -13,5 +13,6 @@ with open('some-file.txt', 'w') as f:
     b.write(b'\0\1\2\3\4')
     b.seek(0)
     b.write(b'\n')
+    print(b.read(2))  # prints b'\1\2'
     b.close()
 ```
