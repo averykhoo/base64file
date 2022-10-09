@@ -19,17 +19,22 @@ class Base64File(io.BufferedIOBase):
     # these are constants that need to be changed if you decide to use base85 instead
     _4 = 4  # (encoded size) number of base64 chars per chunk (change to 5)
     _3 = 3  # (decoded size) number of raw bytes per chunk (change to 4)
-    _binary = 'binary'  # or 'text'
+    _binary = 'binary'
+    _text = 'text'
 
-    @staticmethod
-    def _b64encode(x):
-        # return base64.b85encode(x)
-        return base64.b64encode(x)
+    def _b64encode(self, x):
+        out = base64.b64encode(x)
+        assert len(out) % self._4 == 0
+        if x and len(x) % self._3 != 0:
+            assert out[-1] == ord('='), (x, out[-1])
+        return out
 
-    @staticmethod
-    def _b64decode(x):
-        # return base64.b85decode(x)
-        return base64.b64decode(x, validate=True)
+    def _b64decode(self, x):
+        assert len(x) % self._4 == 0
+        out = base64.b64decode(x, validate=True)
+        if x and x[-1] != ord('='):
+            assert len(out) % self._3 == 0, (x, out)
+        return out
 
     def __init__(self,
                  file_name: Optional[str] = None,
@@ -70,14 +75,20 @@ class Base64File(io.BufferedIOBase):
                 warnings.warn(f'specified file_name "{file_name}" will be ignored, and file_obj will be used as-is')
 
             # what is the current mode
-            self.mode = getattr(file_obj, 'mode', mode)
+            file_mode = getattr(file_obj, 'mode', '')
+            if file_mode:
+                self.mode = file_mode.replace(self._text[0], self._binary[0])
+            elif mode is not None:
+                self.mode = mode.replace(self._text[0], self._binary[0])
+            else:
+                self.mode = None
             if mode is not None and mode != self.mode:
-                warnings.warn(f'specified mode "{mode}" will be ignored, and file_obj will be used as-is')
+                warnings.warn(f'specified mode "{mode}" will be ignored, inherited "{self.mode}" from file_obj')
 
             # wrap in a text io wrapper if needed
-            if isinstance(file_obj, (BinaryIO, io.BytesIO, io.BufferedIOBase, io.RawIOBase)):
+            if isinstance(file_obj, (BinaryIO, io.BytesIO, io.BufferedIOBase, io.RawIOBase)) or 'b' in file_mode:
                 file_obj = self._opened_file_obj = io.TextIOWrapper(file_obj, encoding='ascii', newline='')
-            elif isinstance(file_obj, (TextIO, io.StringIO, io.TextIOBase)):
+            elif isinstance(file_obj, (TextIO, io.StringIO, io.TextIOBase)) or 't' in file_mode:
                 self._opened_file_obj = None
             else:
                 raise TypeError(f'unexpected file_obj type, got {type(file_obj)}')
@@ -95,7 +106,8 @@ class Base64File(io.BufferedIOBase):
             self.mode = mode
 
             # create file obj
-            file_obj = self._opened_file_obj = builtins.open(file_name, mode or 'rb')
+            file_mode = self.mode.replace(self._binary[0], self._text[0])
+            file_obj = self._opened_file_obj = builtins.open(file_name, file_mode)
 
         # keep track of file object
         self.file_obj = file_obj
@@ -115,8 +127,7 @@ class Base64File(io.BufferedIOBase):
             self._b64decode = lambda x: base64.b64decode(x, altchars=alt_chars, validate=True)
 
     def __repr__(self):
-        s = repr(self.file_obj)
-        return '<base64 ' + s[1:-1] + ' ' + hex(id(self)) + '>'
+        return f'<{self.__class__.__name__} {repr(self.file_obj)[1:-1]} {hex(id(self))}>'
 
     @property
     def tell(self):
@@ -252,10 +263,6 @@ class Base64File(io.BufferedIOBase):
 
         # read data
         _bytes_read = self.file_obj.read(_file_size_to_read).encode('ascii')
-        assert len(_bytes_read) % self._4 == 0, (len(_bytes_read), _bytes_read)
-        # todo: need support for b85 here
-        # if _file_size_to_read < 0 or len(_bytes_read) < _file_size_to_read:
-        #     _bytes_read += b'===='
         self._buffer.extend(self._b64decode(_bytes_read))
 
         # how much to return
@@ -278,17 +285,12 @@ class Base64File(io.BufferedIOBase):
 
     def close(self):
         # ensure data is written
-        if self._data_not_written_flag:
-            self.read(self._3)
+        self.flush()
 
         # remove the file obj immediately
         file_obj, self.file_obj = self.file_obj, None
         if file_obj is None:
             return
-
-        # really make sure
-        if self._data_not_written_flag:
-            file_obj.write(self._b64encode(self._buffer).decode('ascii'))
 
         # close my_file_obj if we opened it via file_name in __init__
         if self._opened_file_obj is not None:
@@ -297,6 +299,15 @@ class Base64File(io.BufferedIOBase):
 
     def flush(self):
         self._ensure_not_closed()
+
+        # read and merge changes and write, if the file is readable
+        if self._data_not_written_flag and self.readable():
+            self.read(self._3)
+
+        # assume we're writing to the end of the file
+        if self._data_not_written_flag:
+            self.file_obj.write(self._b64encode(self._buffer).decode('ascii'))
+
         self.file_obj.flush()
 
     # noinspection SpellCheckingInspection
@@ -308,13 +319,7 @@ class Base64File(io.BufferedIOBase):
         self._ensure_seekable()
         self._ensure_readable()
 
-        # ensure data is written
-        if self._data_not_written_flag:
-            self.read(self._3)
-
-        # write to end of file
-        if self._data_not_written_flag:
-            self.file_obj.write(self._b64encode(self._buffer).decode('ascii'))
+        self.flush()
 
         if whence == io.SEEK_SET:
             if offset < 0:
@@ -346,6 +351,12 @@ class Base64File(io.BufferedIOBase):
 
     def readline(self, size=-1):
         raise NotImplementedError
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
 
 if __name__ == '__main__':
