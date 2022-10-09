@@ -253,6 +253,7 @@ class Base64File(io.BufferedIOBase):
         # read data
         _bytes_read = self.file_obj.read(_file_size_to_read).encode('ascii')
         assert len(_bytes_read) % self._4 == 0, (len(_bytes_read), _bytes_read)
+        # todo: need support for b85 here
         # if _file_size_to_read < 0 or len(_bytes_read) < _file_size_to_read:
         #     _bytes_read += b'===='
         self._buffer.extend(self._b64decode(_bytes_read))
