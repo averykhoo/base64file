@@ -43,6 +43,8 @@ class Base64File(io.BufferedIOBase):
                  alt_chars: Optional[str] = None,
                  ):
         """
+        todo: cleanup docs, the gzipfile stuff is likely not accurate as-is
+
         At least one of file_obj and file_name must be given a
         non-trivial value.
 
@@ -64,28 +66,64 @@ class Base64File(io.BufferedIOBase):
         'wb', 'a' and 'ab', and 'x' and 'xb'.
         """
 
+        # STEP 1: sanity check
+
         # we need at least one of these
+        file_name = file_name.strip() or None
         if file_obj is None and file_name is None:
             raise ValueError('either file_name or file_obj must be specified')
 
-        # file object provided
-        if file_obj is not None:
-            # don't need the file name
-            if file_name is not None and file_name != getattr(file_obj, 'name', None):
-                warnings.warn(f'specified file_name "{file_name}" will be ignored, and file_obj will be used as-is')
+        # STEP 2: figure out file mode
 
-            # what is the current mode
+        # try to read it from the file
+        if file_obj is not None:
+            # convert text mode to binary mode
             file_mode = getattr(file_obj, 'mode', '')
             if file_mode:
-                self.mode = file_mode.replace(self._text[0], self._binary[0])
-            elif mode is not None:
-                self.mode = mode.replace(self._text[0], self._binary[0])
+                self.mode = file_mode.replace(self._text[0], '')
+
+            # couldn't read from file, try to use mode instead
+            elif mode:
+                if not set(mode).issubset({'r', 'w', 'a', 'x', '+', self._binary[0]}):
+                    raise ValueError(mode)
+                self.mode = mode
+
+            # mode not provided, so we'll just not know what mode we're in (which is actually fine)
             else:
                 self.mode = None
-            if mode is not None and mode != self.mode:
-                warnings.warn(f'specified mode "{mode}" will be ignored, inherited "{self.mode}" from file_obj')
+
+            # add explicit binary flag to mode
+            if mode:
+                if self._binary[0] not in self.mode:
+                    self.mode += self._binary[0]
+
+                # warning if we ignored the input mode
+                if set(mode + self._binary[0]) != set(self.mode):
+                    warnings.warn(f'specified mode "{mode}" will be ignored, inherited "{self.mode}" from file_obj')
+
+        # no file object, try to use provided mode
+        elif mode:
+            if not set(mode).issubset({'r', 'w', 'a', 'x', '+', self._binary[0]}):
+                raise ValueError(f'invalid mode "{mode}"')
+            self.mode = mode
+            if self._binary[0] not in self.mode:
+                self.mode += self._binary[0]
+
+        # default to read-only (binary mode)
+        else:
+            self.mode = 'r' + self._binary[0]
+
+        # STEP 3: open file if needed
+
+        # file object provided
+        if file_obj is not None:
+
+            # don't need the file name, give a warning that the provided name will be ignored
+            if file_name and file_name != getattr(file_obj, 'name', None):
+                warnings.warn(f'specified file_name "{file_name}" will be ignored, and file_obj will be used as-is')
 
             # wrap in a text io wrapper if needed
+            file_mode = getattr(file_obj, 'mode', '')
             if isinstance(file_obj, (BinaryIO, io.BytesIO, io.BufferedIOBase, io.RawIOBase)) or 'b' in file_mode:
                 file_obj = self._opened_file_obj = io.TextIOWrapper(file_obj, encoding='ascii', newline='')
             elif isinstance(file_obj, (TextIO, io.StringIO, io.TextIOBase)) or 't' in file_mode:
@@ -95,22 +133,15 @@ class Base64File(io.BufferedIOBase):
 
         # file object has to be created from file_name and mode
         else:
-            if mode is None:
-                mode = 'r'
-            if mode and set(mode).issubset({'r', 'w', 'a', 'x', '+', self._binary[0]}):
-                if self._binary[0] not in mode:
-                    mode += self._binary[0]
-                    warnings.warn(f'base64_file only supports {self._binary}, changing mode to {mode}')
-            else:
-                raise ValueError(f'invalid mode "{mode}"')
-            self.mode = mode
-
-            # create file obj
+            assert self._binary[0] in self.mode
             file_mode = self.mode.replace(self._binary[0], self._text[0])
             file_obj = self._opened_file_obj = builtins.open(file_name, file_mode)
 
         # keep track of file object
         self.file_obj = file_obj
+
+        # STEP 4: init variables to store state
+        # todo: be explicit about what state is stored, since it's effectively a generic chunk-based codec
 
         # allow reading/writing to happen from the middle of a file
         self.file_tell_offset = file_obj.tell()
@@ -120,6 +151,8 @@ class Base64File(io.BufferedIOBase):
 
         # flags
         self._data_not_written_flag = False
+
+        # STEP 5: special handling for base64
 
         # base64 args
         if alt_chars is not None:
