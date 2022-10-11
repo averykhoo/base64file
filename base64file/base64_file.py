@@ -145,10 +145,10 @@ class Base64File(io.BufferedIOBase):
 
         # this keeps track of where we started in the file, so we can accurately seek around
         self.file_tell_offset = file_obj.tell()
-        
+
         # this records where we are in terms of data read/written
         self._cursor = 0  # base64 bytes
-        
+
         # the buffer is the current chunk of data, and must always be the same size (except the very last chunk)
         self._buffer = bytearray()
         self._buffer_cursor = 0
@@ -394,21 +394,3 @@ class Base64File(io.BufferedIOBase):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
-
-
-if __name__ == '__main__':
-    with open('tmp.txt', 'wt+') as f:
-        print(f.write('\1\2'))
-        print(f.write('\3'))
-        bf = Base64File(file_obj=f)
-        bf.write(b'01234567890123456789')
-        bf.seek(1)
-        print(bf.read(1))
-        bf.write(b'qwert')
-        bf.close()
-    with open('tmp.txt', 'rb') as f:
-        print(type(f))
-        f.seek(3)
-        bf = Base64File(file_obj=f)
-        print(bf.read())
-        bf.close()
