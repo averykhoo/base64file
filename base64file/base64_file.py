@@ -66,16 +66,17 @@ class Base64File(io.BufferedIOBase):
         'wb', 'a' and 'ab', and 'x' and 'xb'.
         """
 
-        # STEP 1: sanity check
+        # STEP 1: sanity check that we either have a file or have a name to open one
 
-        # we need at least one of these
-        file_name = file_name.strip() or None
+        # we need at least one of these to be valid
+        if isinstance(file_name, str):
+            file_name = file_name.strip() or None
         if file_obj is None and file_name is None:
             raise ValueError('either file_name or file_obj must be specified')
 
         # STEP 2: figure out file mode
 
-        # try to read it from the file
+        # try to read it (and convert it) from the file, if one was provided
         if file_obj is not None:
             # convert text mode to binary mode
             file_mode = getattr(file_obj, 'mode', '')
@@ -141,15 +142,18 @@ class Base64File(io.BufferedIOBase):
         self.file_obj = file_obj
 
         # STEP 4: init variables to store state
-        # todo: be explicit about what state is stored, since it's effectively a generic chunk-based codec
 
-        # allow reading/writing to happen from the middle of a file
+        # this keeps track of where we started in the file, so we can accurately seek around
         self.file_tell_offset = file_obj.tell()
+        
+        # this records where we are in terms of data read/written
         self._cursor = 0  # base64 bytes
+        
+        # the buffer is the current chunk of data, and must always be the same size (except the very last chunk)
         self._buffer = bytearray()
         self._buffer_cursor = 0
 
-        # flags
+        # if we have data that still needs to be written to disk (usually an incomplete last chunk)
         self._data_not_written_flag = False
 
         # STEP 5: special handling for base64

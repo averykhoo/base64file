@@ -1,7 +1,6 @@
 # TODO
 
-* support with syntax
-* support base85, etc
+* support `readline()`
 * support line wraps
 * remove test from the library
 
