@@ -4,16 +4,11 @@ An IO wrapper that but reads/writes binary data as base64 text, supporting concu
 to [`GzipFile`](https://docs.python.org/3/library/gzip.html#gzip.GzipFile), it simulates most of the methods of a
 standard file object (with the exception of `readline`).
 
-* When opening a Base64File without specifying an underlying file, a filename must be provided, and the usual binary
-  modes are supported: `r`, `rb`,  `w`,  `wb`, `a`, `ab`, `x`, and `xb` (optional `+` to enable concurrent
-  reading/writing, e.g. `wb+`).
-* When opening a Base64File with a specified underlying file, the mode is inherited from the specified file (replacing
-  text-mode with binary-mode). If a binary-mode file is provided, it is automatically wrapped with
-  a [`TextIOWrapper`](https://docs.python.org/3/library/io.html#io.TextIOWrapper).
-
 ## Usage
 
-### `base64file.open`
+### base64file.open()
+
+* Similar to `gzip.open()` or `io.open()`
 
 ```python
 import base64file
@@ -23,11 +18,18 @@ with base64file.open('some-file.txt', 'rt', encoding='utf8') as f:
     f.write('1234567890')
 
 # to write binary
-with base64file.open('some-file.txt', 'rb', encoding='utf8') as f:
+with base64file.open('some-file.txt', 'rb') as f:
     f.write(b'\1\2\3\4\5')
 ```
 
-### `base64file.Base64File`
+### base64file.Base64File
+
+* When opening a Base64File without specifying an underlying file, a filename must be provided, and the usual binary
+  modes are supported: `r`, `rb`,  `w`,  `wb`, `a`, `ab`, `x`, and `xb` (optional `+` to enable concurrent
+  reading/writing, e.g. `wb+`).
+* When opening a Base64File with a specified underlying file, the mode is inherited from the specified file (replacing
+  text-mode with binary-mode). If a binary-mode file is provided, it is automatically wrapped with
+  a [`TextIOWrapper`](https://docs.python.org/3/library/io.html#io.TextIOWrapper).
 
 ```python
 from base64file import Base64File
