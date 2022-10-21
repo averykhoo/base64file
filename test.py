@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 from base64file import Ascii85File

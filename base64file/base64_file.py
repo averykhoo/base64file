@@ -8,19 +8,19 @@ from typing import TextIO
 from typing import Union
 
 
-class Base64File(io.BufferedIOBase):
+class Base64File(io.BufferedIOBase, io.BytesIO):
     """
-    The GzipFile class simulates most of the methods of a file object.
+    The Base64File class simulates most of the methods of a file object.
 
     This class only supports opening files in binary mode.
-    If you need to open a compressed file in text mode, use the gzip.open() function.
+    If you need to open a compressed file in text mode, use the `base64file.open()` function.
     """
 
-    # these are constants that need to be changed if you decide to use base85 instead
-    _4 = 4  # (encoded size) number of base64 chars per chunk (change to 5)
-    _3 = 3  # (decoded size) number of raw bytes per chunk (change to 4)
-    _binary = 'binary'
-    _text = 'text'
+    # changeable constants allow this class to be used as a generic chunked reader/writer
+    _4 = 4  # (encoded chunk size) number of base64 chars per chunk
+    _3 = 3  # (decoded chunk size) number of raw bytes per chunk
+    _binary = 'binary'  # input to encoder
+    _text = 'text'  # output from encoder
 
     def _b64encode(self, x):
         out = base64.b64encode(x)
@@ -37,42 +37,28 @@ class Base64File(io.BufferedIOBase):
         return out
 
     def __init__(self,
-                 file_name: Optional[str] = None,
+                 filename: Optional[str] = None,
                  mode: Optional[str] = None,
+                 *,
                  file_obj: Optional[Union[TextIO, BinaryIO]] = None,
                  alt_chars: Optional[str] = None,
                  ):
         """
-        todo: cleanup docs, the gzipfile stuff is likely not accurate as-is
+        At least one of file_obj and filename must be given a non-trivial value.
+        When file_obj is not None, the filename argument is ignored.
 
-        At least one of file_obj and file_name must be given a
-        non-trivial value.
-
-        The new class instance is based on file_obj, which can be a regular
-        file, an io.BytesIO object, or any other object which simulates a file.
-        It defaults to None, in which case file_name is opened to provide
-        a file object.
-
-        When file_obj is not None, the file_name argument is only used to be
-        included in the gzip file header, which may include the original
-        file_name of the uncompressed file.  It defaults to the file_name of
-        file_obj, if discernible; otherwise, it defaults to the empty string,
-        and in this case the original file_name is not included in the header.
-
-        The mode argument can be any of 'r', 'rb', 'a', 'ab', 'w', 'wb', 'x', or
-        'xb' depending on whether the file will be read or written.  The default
-        is the mode of file_obj if discernible; otherwise, the default is 'rb'.
-        A mode of 'r' is equivalent to one of 'rb', and similarly for 'w' and
-        'wb', 'a' and 'ab', and 'x' and 'xb'.
+        The mode argument can be any of the standard file modes.
+        It defaults to the mode of file_obj if discernible; otherwise, the default is 'rb'.
+        A mode of 'r', 'w', 'a', or 'x' is equivalent to one of 'rb', 'wb', 'ab', or 'xb'.
         """
 
         # STEP 1: sanity check that we either have a file or have a name to open one
 
         # we need at least one of these to be valid
-        if isinstance(file_name, str):
-            file_name = file_name.strip() or None
-        if file_obj is None and file_name is None:
-            raise ValueError('either file_name or file_obj must be specified')
+        if isinstance(filename, str):
+            filename = filename.strip() or None
+        if file_obj is None and filename is None:
+            raise ValueError('either filename or file_obj must be specified')
 
         # STEP 2: figure out file mode
 
@@ -120,8 +106,8 @@ class Base64File(io.BufferedIOBase):
         if file_obj is not None:
 
             # don't need the file name, give a warning that the provided name will be ignored
-            if file_name and file_name != getattr(file_obj, 'name', None):
-                warnings.warn(f'specified file_name "{file_name}" will be ignored, and file_obj will be used as-is')
+            if filename and filename != getattr(file_obj, 'name', None):
+                warnings.warn(f'specified filename "{filename}" will be ignored, and file_obj will be used as-is')
 
             # wrap in a text io wrapper if needed
             file_mode = getattr(file_obj, 'mode', '')
@@ -132,11 +118,11 @@ class Base64File(io.BufferedIOBase):
             else:
                 raise TypeError(f'unexpected file_obj type, got {type(file_obj)}')
 
-        # file object has to be created from file_name and mode
+        # file object has to be created from filename and mode
         else:
             assert self._binary[0] in self.mode
             file_mode = self.mode.replace(self._binary[0], self._text[0])
-            file_obj = self._opened_file_obj = builtins.open(file_name, file_mode)
+            file_obj = self._opened_file_obj = builtins.open(filename, file_mode)
 
         # keep track of file object
         self.file_obj = file_obj
@@ -329,7 +315,7 @@ class Base64File(io.BufferedIOBase):
         if file_obj is None:
             return
 
-        # close my_file_obj if we opened it via file_name in __init__
+        # close my_file_obj if we opened it via filename in __init__
         if self._opened_file_obj is not None:
             self._opened_file_obj.close()
             self._opened_file_obj = None
