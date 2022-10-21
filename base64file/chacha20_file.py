@@ -1,5 +1,6 @@
 import builtins
 import io
+import secrets
 import warnings
 from typing import BinaryIO
 from typing import Optional
@@ -20,7 +21,6 @@ class ChaCha20File(io.BufferedIOBase, io.BytesIO):
                  mode: Optional[str] = None,
                  *,
                  secret_key: bytes = b'',  # length 32
-                 nonce: bytes = b'',  # length 12
                  file_obj: Optional[Union[TextIO, BinaryIO]] = None,
                  ):
         """
@@ -39,7 +39,6 @@ class ChaCha20File(io.BufferedIOBase, io.BytesIO):
 
         # for chacha20 to work
         assert isinstance(secret_key, bytes) and len(secret_key) == 32
-        assert isinstance(nonce, bytes) and len(nonce) == 16
 
         # we need at least one of these to be valid
         if isinstance(filename, str):
@@ -96,10 +95,21 @@ class ChaCha20File(io.BufferedIOBase, io.BytesIO):
         self.file_obj = file_obj
 
         # STEP 4: cipher stuff
-        _algorithm = ChaCha20(secret_key, nonce)
-        _cipher = Cipher(_algorithm, mode=None)
-        self._encryptor = _cipher.encryptor() if self.mode == 'wb' else None
-        self._decryptor = _cipher.decryptor() if self.mode == 'rb' else None
+
+        # get nonce
+        if self.mode == 'rb':
+            nonce = self.file_obj.read(16)
+        elif self.mode == 'wb':
+            nonce = secrets.token_bytes(16)
+            self.file_obj.write(nonce)
+        else:
+            raise RuntimeError
+
+        # init the algorithm
+        algorithm = ChaCha20(secret_key, nonce)
+        cipher = Cipher(algorithm, mode=None)
+        self._encryptor = cipher.encryptor() if self.mode == 'wb' else None
+        self._decryptor = cipher.decryptor() if self.mode == 'rb' else None
         self._cursor = 0
 
     def __repr__(self):
@@ -193,8 +203,8 @@ class ChaCha20File(io.BufferedIOBase, io.BytesIO):
 
 
 if __name__ == '__main__':
-    with ChaCha20File('test.bin', 'wb', secret_key=b'\0' * 32, nonce=b'\0' * 16) as f:
+    with ChaCha20File('test.bin', 'wb', secret_key=b'\0' * 32) as f:
         f.write(b'asdf')
     with open('test.bin', 'rb') as f1:
-        with ChaCha20File(file_obj=f1, secret_key=b'\0' * 32, nonce=b'\0' * 16) as f2:
+        with ChaCha20File(file_obj=f1, secret_key=b'\0' * 32) as f2:
             print(f2.read())
