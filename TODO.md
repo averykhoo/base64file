@@ -14,3 +14,6 @@
 * publish / update
     * increment `__version__` in `nmd/__init__.py`
     * `flit publish`
+* other
+    * maybe store password to .pypirc
+    * add home url to pyproject.toml
