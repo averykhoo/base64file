@@ -1,9 +1,8 @@
 # TODO
 
 * support `readline()`
-* support line wraps
+* support reading & writing of line wraps into output file
 * more comprehensive tests
-* add base85 and ascii85 to readme
 
 ## Publishing (notes for myself)
 

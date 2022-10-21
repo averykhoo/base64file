@@ -57,3 +57,16 @@ print(b.read(2))  # prints b'\1\2'
 b.close()  # this is necessary, otherwise the final 1-2 bytes may not be written
 f.close()
 ```
+
+### base64file.Base85File and base64file.Ascii85File
+
+* The same as base64file.Base64File, but instead
+  uses [`b85encode()`](https://docs.python.org/3/library/base64.html#base64.b85encode)
+  or [`a85encode()`](https://docs.python.org/3/library/base64.html#base64.a85encode)
+* Note that many implementations of base85 are actually Ascii85 (for example, CyberChef.io)
+
+
+```python
+from base64file import Ascii85File
+from base64file import Base85File
+```
