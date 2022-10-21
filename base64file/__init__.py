@@ -7,7 +7,7 @@ from base64file.base85_file import Ascii85File
 from base64file.base85_file import Base85File
 from base64file.convenience import open
 
-__version__ = '0.0.10'
+__version__ = '0.0.11'
 
 __all__ = (
     Base64File,
