@@ -7,12 +7,11 @@ from base64file.base64_file import Base64File
 def open(filename, mode="rb", encoding=None, errors=None, newline=None):
     """Open a base64 file in binary or text mode.
 
-    The filename argument can be an actual filename (a str or bytes object), or
-    an existing file object to read from or write to.
+    The filename argument should be an actual filename (a str or bytes object).
 
     The mode argument can be "r", "rb", "w", "wb", "x", "xb", "a" or "ab" for
     binary mode, or "rt", "wt", "xt" or "at" for text mode. The default mode is
-    "rb", and the default compresslevel is 9.
+    "rb".
 
     For binary mode, this function is equivalent to the Base64File constructor:
     Base64File(filename, mode). In this case, the encoding, errors
@@ -42,6 +41,6 @@ def open(filename, mode="rb", encoding=None, errors=None, newline=None):
         raise TypeError("filename must be a str or bytes object, or a file")
 
     if "t" in mode:
-        return io.TextIOWrapper(binary_file, encoding, errors, newline)
+        return io.TextIOWrapper(binary_file, encoding, errors, newline, write_through=True)
     else:
         return binary_file
