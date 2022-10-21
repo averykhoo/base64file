@@ -81,6 +81,8 @@ class Base64File(io.BufferedIOBase, io.BytesIO):
 
             # add explicit binary flag to mode
             if mode:
+                assert self.mode is not None  # should not be possible
+
                 if self._binary[0] not in self.mode:
                     self.mode += self._binary[0]
 
@@ -171,7 +173,7 @@ class Base64File(io.BufferedIOBase, io.BytesIO):
 
     def _ensure_not_closed(self):
         if self.file_obj is None:
-            raise ValueError("write() on closed GzipFile object")
+            raise ValueError(f'I/O operation on closed {self.__class__.__name__} object')
         if self.file_obj.closed:
             raise ValueError('I/O operation on closed file')
 
