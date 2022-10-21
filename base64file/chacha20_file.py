@@ -115,7 +115,6 @@ class ChaCha20File(io.BufferedIOBase, io.BytesIO):
     def __repr__(self):
         return f'<{self.__class__.__name__} {repr(self.file_obj)[1:-1]} {hex(id(self))}>'
 
-    @property
     def tell(self):
         return self._cursor
 
