@@ -6,8 +6,11 @@ from typing import Optional
 from typing import TextIO
 from typing import Union
 
-from cryptography.hazmat.primitives.ciphers import Cipher
-from cryptography.hazmat.primitives.ciphers.algorithms import ChaCha20
+try:
+    from cryptography.hazmat.primitives.ciphers import Cipher
+    from cryptography.hazmat.primitives.ciphers.algorithms import ChaCha20
+except ImportError:
+    Cipher = ChaCha20 = None
 
 
 class ChaCha20File(io.BufferedIOBase, io.BytesIO):
@@ -30,6 +33,9 @@ class ChaCha20File(io.BufferedIOBase, io.BytesIO):
         """
 
         # STEP 1: sanity checks
+
+        if Cipher is None or ChaCha20 is None:
+            raise ImportError("the cryptography package doesn't seem to be available")
 
         # for chacha20 to work
         assert isinstance(secret_key, bytes) and len(secret_key) == 32
